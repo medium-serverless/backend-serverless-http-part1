@@ -1,0 +1,17 @@
+service: serverless-express
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  stage: dev
+  region: eu-central-1
+
+plugins:
+  - serverless-offline
+
+functions:
+  expressApp:
+    handler: handler.handler
+    events:
+      - http: ANY /
+      - http: 'ANY {proxy+}' 
