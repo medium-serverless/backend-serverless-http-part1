@@ -15,4 +15,31 @@ functions:
     handler: handler.handler
     events:
       - http: ANY /
-      - http: 'ANY {proxy+}' 
+      - http: 'ANY {proxy+}'
+
+  usersPost:
+    handler: src/handlers/api/users.postUsers
+    events:
+      - http:
+          method: post
+          path: /api/users
+          integration: lambda
+          request:
+            schema:
+              application/json: ${file(src/schemas/newUser.json)}
+          response:
+            headers:
+              Content-Type: "'application/json'"
+            statusCodes:
+              201:
+                pattern: ''
+              200:
+                pattern: '^Missing.*'
+                template:
+                  application/json: ${file(src/errors/error-response-template.yml)} # JSON return object
+#                pattern: '.is already taken.'
+#                template:
+#                  application/json: $input.path("$.errorMessage") # JSON return object
+#                  headers:
+#                    Content-Type: "'application/json'"
+
