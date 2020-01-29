@@ -24,6 +24,12 @@ npm install
 npm install --save mongoose@latest mongoose-unique-validator@latest
 ```
 
+Then open app/app.js and add this line at the bottom
+```javascript
+module.exports = app
+```
+Basically you need to export the express app so that the handler.js file in root dir can use it.
+
 
 ### Running locally
 

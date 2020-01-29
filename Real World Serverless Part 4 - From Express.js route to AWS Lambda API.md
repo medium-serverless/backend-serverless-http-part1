@@ -4,6 +4,8 @@
 
 In Part 4 I'm refactoring one single API endpoint for the entire medium app into a deployed lambda. In the end, you will have the same amount of code, with the difference that the *deployment* of the app is included with that code. The cool kids call it ***infrastructure as code***
 
+You can view [the final repo with simple steps to run locally/deploy to produciton here](https://github.com/medium-serverless/backend-serverless-http-part1.git)
+
 #### What you'll learn
 
 * How to do with AWS Lambda & API Gateway what you normally do with a web framework like Express, Flask or Spring.
@@ -133,8 +135,6 @@ That is all you need to configure *and deploy* your route! Now any POST request 
 
 
 
-//TODO put the .env's in the previous repo
-
 ### 4. Let's test it
 
 Make sure all dependencies are installed with `npm install` in both the root directory and the app directory. You can then run the project on your local machine with`sls offline --skipCacheInvalidation` and you should see it running:
@@ -248,7 +248,9 @@ Let's create a schema for our user object and place it in a separate file/folder
 }
 ```
 
-I don't think I need to explain the schema since JSON Schema is very human-readable! Now simply plug it into our endpoint via Serverless.yml:
+I don't think I need to explain the schema since JSON Schema is very human-readable! There is a [great tutorial with examples for JSON schema in the aws docs](https://docs.aws.amazon.com/apigateway/latest/developerguide/models-mappings.html).
+
+Now simply plug it into our endpoint via Serverless.yml:
 
 ```yaml
 usersPost:
@@ -369,7 +371,7 @@ Will result in the below 200 OK reply:
 
 ```json
 {
-    "message": "User validation failed: email: is already taken., username: is already taken."
+ "message": "User validation failed: email: is already taken., username: is already taken."
 }
 ```
 
@@ -384,6 +386,8 @@ throw new Error(JSON.stringify({code: '[422]', someProperty, someVar, otherUsefu
 ```
 
 And have that handled by a standard code 422 template with any variables you include accessible by the template. So the error-response-template.yml is more powerful than what we've used it for so far. And you can do a lot more with it in order to format a good response. We'll get to that in later parts when we build on this powerful error handling strategy further :)
+
+Checkout the [aws docs for reference on mapping template variables](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html)
 
 
 
