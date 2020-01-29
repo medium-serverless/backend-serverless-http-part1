@@ -10,10 +10,7 @@ module.exports.postUsers = async (event, context) => {
   user.email = event.body.user.email
   user.setPassword(event.body.user.password)
 
-  await user.save().catch(e => {
-
-    throw new Error("User validation failed: username: is already taken., email: is already taken.")
-  })
+  await user.save()
 
   return { user: user.toAuthJSON() }
 }
