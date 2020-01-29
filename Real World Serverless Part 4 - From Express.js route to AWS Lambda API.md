@@ -389,7 +389,7 @@ And have that handled by a standard code 422 template with any variables you inc
 
 # Next Steps & Final Code
 
-Checkout the final code from this tutorial in the [Github Repo](  s). I also recommend checking out the previous part if you want a full understanding of how to run real world apps serverlessly:
+Checkout the final code from this tutorial in the [Github Repo](https://github.com/medium-serverless/backend-serverless-http-part1.git). I also recommend checking out the previous part if you want a full understanding of how to run real world apps serverlessly:
 
 In part 5 of this tutorial I'm going to continue refactoring the Users part of the API. Specifically, I'm going to deal with authentication and authorization. Currently, that's all tangled up with our code and endpoints and  I want to do it with an authorizer function instead. 
 

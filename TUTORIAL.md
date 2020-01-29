@@ -1,501 +1,396 @@
-**In this tutorial we'll deploy a clone of Medium.com serverlessly. By taking an existing traditional "serverfull" app, that is more more real-world than your typical todo-app, you will learn the differences that going serverless entails, which will translate into real skills running your own projects.**
+# Real World Serverless: Part 4 - From Express.js route to AWS Lambda API
 
-The Medium.com clone we'll use is ["The Mother of all Demo Apps" - RealWorld Example Apps](https://github.com/gothinkster/realworld). It comes in a variety of different languages and frameworks and is all about teaching you *how to code a medium clone*. ***So here's how to deploy it!*** Please note; I didn't code this app i'm just deploying it serverlessly with you :)
+*In this tutorial series I'm refactoring a node.js/express/mongodb clone of medium.com into a serverless app. You can view the deployed result at [https://mediumserverless.com](https://mediumserverless.com). You can learn more about the medium clone here; ["The mother of all demo apps" — Exemplary fullstack Medium.com clone powered by React, Angular, Node, Django, and many more ](https://github.com/gothinkster/realworld)*
 
-Learning serverless will help you get your own projects running live for free, with minimal maintenance and less development effort! It does require a change in thinking so refactoring a traditional web-framework app should make that change easy for you. 
+In Part 4 I'm refactoring one single API endpoint for the entire medium app into a deployed lambda. In the end, you will have the same amount of code, with the difference that the *deployment* of the app is included with that code. The cool kids call it ***infrastructure as code***
 
-***let me know in the comments*** if you're stuck or something isn't clear! I will help you out. 
+#### What you'll learn
 
-## Wait but why?
+* How to do with AWS Lambda & API Gateway what you normally do with a web framework like Express, Flask or Spring.
+* Simple, clean and effective input validation for any AWS API using JSON Schema.
+* How to handle errors consistently, with minimal effort and zero code clutter.
+* Deploy with one command and leave it running for free.
 
-* If you code in JavaScript, Java, Python, .NET, Ruby or Go; RealWorld also has Example Apps in these languages and the serverless tools & concepts you learn here applies to those languages
-* Any web project regardless of backend will involve JavaScript in the frontend hence why the serverless tools used in this tutorial is useful for any web app developer
-* The end-result here is how you would deploy a truly fast frontend, i.e. a Server Side Rendered Static Front-End, ***serverlessly***. So something like Next/Nuxt.
-* It's also how to use JavaScript web-frameworks in the serverless world, meaning perhaps existing projects you have, or the vast ecosystem of plugins and libraries that exist for these.
+Because we are *configuring* these things instead of implementing them in code, what you'll learn will also work in any [programming language that AWS supports](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html) 💪⭐️ (JavaScript, Python, Ruby, Java, Go and .NET)
 
-So at the end of this tutorial you will have a good base understanding of serverless and another essential tool in your web app programming belt! 
+### 1. Clone repo from Part 2
 
+If you haven't followed along Part 1-3 you can still jump in here and follow along just fine. But I do recommend going from the beginning if you really want to learn how the whole serverless thing works. 
 
+Create a new directory for this tutorial and clone the backend from Part 2 into a new directory:
 
-## TL;DR
+`git clone https://github.com/medium-serverless/backend-serverless-http-part1.git .`
 
-This tutorial is --verbose in order to properly relay all the concepts behind serverless. However you could skip all that and just [go straight to the repo](https://github.com/medium-serverless/backend-serverless-http-part1). 
+Then clone the original Real World Demo App into the app folder
 
-Each implementation step is labeled 1-13 so you can make sure you don't miss any steps.
+`git clone https://github.com/gothinkster/node-express-realworld-example-app.git app`
 
-## Serverless 101 - Get our backend running in on aws 
-
-Let's deploy the most popular of the RealWorld Example App backends; [Node Exress RealWorld Example App](https://github.com/gothinkster/node-express-realworld-example-app). It uses MongoDB and Mongoose, not anything serverless-specific like DynamoDB. This is 3 years old code designed for Serverfull - not a serverless happy path scenario! We'll run into problems and bugs, which is great because then you'll learn how to debug problems when they show up in your own project. 
-
-
-### Get the project running on your machine
-
-Create a new folder on your machine for this project. Fire up your terminal; then let's clone the [Node Express RealWorld Example App](https://github.com/gothinkster/node-express-realworld-example-app), into it's own folder named app, and change directory into it:
-
-#### 1
-```
-git clone https://github.com/gothinkster/node-express-realworld-example-app.git app && cd app
-```
-
-Now let's go through the install instructions in the Express RealWorld README.md that you just cloned:
-
-- `npm install` to install all required dependencies
-- Install MongoDB Community Edition ([instructions](https://docs.mongodb.com/manual/installation/#tutorials)) and run it by executing `mongod`
-- `npm run dev` to start the local server
-
-Does the console print "Listening on port 3000"? Good! If not make sure you've followed the above steps properly.
-
-### Let's run the RealWorld Test-Suite 
-
-RealWorld example apps all come with the same [Postman](https://www.getpostman.com/) collection, which is handy because now we have a whole test suite to run against our serverless app. This link will open the test suite in postman for you; [![Run in Postman](https://run.pstmn.io/button.svg)](https://app
-.getpostman.com/run
--collection/171f064e57fe69cc21ce) (or use it to download the JSON file and run it with newman, the command line version of Postman). You can also download the postman suite from [my finished repo](https://github.com/medium-serverless/backend-serverless-http-part1/tree/master/test)
-
-#### 2
-
-When you run the test suite 239 tests will pass and 44 fail. We'll fix that later :) If you're at 239/44 you're good to go. 
-
-![Alt Text](https://thepracticaldev.s3.amazonaws.com/i/0iv16m3bv1zss8jakso8.png)
-
-
-### Run this entire app in a single lambda
-
-What is a Lambda? ***It's a function that runs in the cloud.*** We'll drop this entire app into a lambda. Why? Well, mostly because it's a fantastic way of understanding how this whole thing works, and the power of it. Is it a good way to deploy an app like this? Kind of! 
-
-First off, running your app this way means that it's free. No fixed cost. Until you have *a few hundred users per day* it's going to be cheaper than a $5/m VPS. If you have zero users, or just a few hundred a month, it's free. I'm being a bit vague because really it isn't free, nothing ever is. It's *pay for what you use*. And you need _a lot_ of use before it starts costing you anywhere near a traditional server approach. 
-
-So for projects that are just getting started, or for your experiements, or for your programming portfolio, it's great because you can leave it all running and be the dev with a bunch of production apps, instead of just a bunch of outdated repos. It also means that you don't need to have a project that is "good enough to spend money on" in order to put it live, and have Google start indexing it. You can work in an agile way and constantly update your live, on the internet app as it gets better and better! Having something live, and seeing some actual use, is very motivating as a programmer :)
-
-But most of all, this is if you don't really like "devops". You're not into configuring servers, nginx, ssh'ing, proxies, linux, docker, and all that. You just want to code stuff that is about your idea, and have the code run in production without leaving your editor. 
-
-### How to configure the AWS cloud and deploy without leaving your editor
-
-You could use the web interface of AWS to do all of this, but that is very tedious and then you have to *leave your editor* and your config won't be in your repo, and that's bad for your productivity and worse than "dealing with servers" if you ask me.
-
-![Alt Text](https://thepracticaldev.s3.amazonaws.com/i/gjn5u2g96ms0x0ga6evb.png)
-
-You could use AWS CloudFormation templates to configure aws in your editor. CloudFormation is very powerful, more complicated and AWS-specific. Enter [Serverless](https://serverless.com) a command-line tool to help simplify your Serverless day-to-day. Think of it as a simplified, 80/20 version of CloudFormation, that in no way limits you to configure the more niche scenarios separately once you need them. It also works with more providers than just aws:
-
-![Alt Text](https://thepracticaldev.s3.amazonaws.com/i/rzupqnrx3se55t9wk8e9.png)
-
-
-### Serverless *Events* - "the thing that calls your function"
-
-So if we have a function in the cloud, what is going to call it? Events. The most common event is a HTTP event - like a GET or POST request, which is what we'll use for our express app, but it could also be a scheduled time, or whenever a file gets saved somewhere, or another function. Have a look at [Serverless AWS Events](https://serverless.com/framework/docs/providers/aws/events/) for an idea if you wish :)
-
-
-### Handlers - functions that can be called by events
-
-The handler is your entry point for each event, i.e. the function that gets called by the event. It always recieves the same two arguments from AWS; event, and context. Have a look at a [sample HTTP Event in the AWS Docs](https://docs.aws.amazon.com/lambda/latest/dg/nodejs-prog-model-context.html)! Whilst you're there, you could also check out all the other available events :) 
-
-The context object contains info about the environment your function runs in. You're not going to use it much for now, learn about it later! Or [Read about Context in AWS docs](https://docs.aws.amazon.com/lambda/latest/dg/nodejs-prog-model-context.html)
-
-## Refactoring our App.js file into a Handler function
-
-*Normally you don't need a web-framework like Express, Spring or Flask in a Serverless app.* AWS does all of the web-framework and it's related stuff for you with API Gateway. And that's a good thing, because it means you don't have to implement all that stuff with code when you're using Serverless. Instead you can focus on coding business logic. However, our app is already built and coupled to a JavaScript web framework, Express.js. What good is a "function in the cloud" if you can't run your code in it? Well, we can :)
-
-We're going to use the proxy type of lamdba. Basically, it means API Gateway will get out of our way, and proxy everything to our lamdba, so that Express can do the routing and all web-framework stuff as usual.
-
-Now we could code our own "bridge" to make express understand API Gateway's proxied HTTP event, however someone has already done it. I just wanted you to understand what it does :) It's called [serverless-http](https://github.com/dougmoscrop/serverless-http)
-
-Let's edit our app.js file to export the express app instance. At the bottom of app/app.js add the export:
-
-#### 3
-```javascript
-module.exports = app
-```
-
-Then head back to your ***project root*** where we'll be working and setup the project:
-
-```
-npm init -y
-touch handler.js
-```
-
-Your project should now look like this:
-
-```
-.
-├── app							<-- folder with the RealWorld repo we cloned with all its files
-├── node_modules		
-├── handler.js			<-- file you just created with 'touch handler.js'
-├── package.json		<-- your dependencies for serverless deployment
-```
-
-In your handler.js file lets import the express app, load serverless-http and export a lambda handler:
+Then open upp app/app.js and add export the app so that the handler we created in tutorial part 2 can use it.
 
 ```javascript
-const serverless = require('serverless-http')
-const app = require('./app/app.js')
-const ourExpressApp = serverless(app)
-module.exports.handler = async (event, context) => {
-  // this is before your express app/code runs
-  let result = await ourExpressApp(event, context)
-  // here express' work is done and ready to reply
-  return result
+... the entire app.js file unchanged
+module.exports = app // <-- just add this at the bottom!
+```
+
+The Repo you just cloned contains an entire app. We're going to refactor one small part of this app into a proper serverless lambda api function, and still run the rest of the app serverlessly alongside it. Easier than it sounds I promise.
+
+
+
+### 2. Refactoring our first endpoint
+
+Let's start at the top. Let's take the below express.js callback/endpoint located in app/routes/api/users.js and turn it into a lambda!
+
+```javascript
+var mongoose = require('mongoose');
+var router = require('express').Router();
+var User = mongoose.model('User');
+
+router.post('/users', function(req, res, next){
+  var user = new User();
+
+  user.username = req.body.user.username;
+  user.email = req.body.user.email;
+  user.setPassword(req.body.user.password);
+
+  user.save().then(function(){
+    return res.json({user: user.toAuthJSON()});
+  }).catch(next);
+});
+
+module.exports = router;
+
+```
+
+Create a src directory in the root of the project. All our new fancy lambda-stuff is going to be placed here. Within src, instead of a "routes" directory, lets have a "handlers" directory. 
+
+```javascript
+// src/handlers/api/users.js
+const mongoose = require('mongoose')
+const User = mongoose.model('User')
+mongoose.connect(process.env.MONGODB_URI) // 1
+
+module.exports.postUsers = async (event, context) => { // 2
+  const user = new User()
+
+  user.username = event.body.user.username
+  user.email = event.body.user.email
+  user.setPassword(event.body.user.password)
+
+  user.save().then(() => {
+    return { user: user.toAuthJSON() } // 3
+  }).catch(() => {
+    return { statusCode: 400 } // 4
+  })
 }
 ```
 
-In terms of code changes, this is all we need to make things run! But how do we get this code to AWS? What IP, or URL is our app going to run at?
+Let's briefly go over the differences before we plug this in. From top to bottom:
 
-## Configuring aws directly from our Editor
+1. We connect to the database within this file so that the function is independent from the rest of the app.
+2. Since we are running Node.js 12.x we can use ES6 syntax without babble. Instead of connecting a callback function into the express router we are simply exporting a regular async function.
+3. We are simply returning regular JavaScript objects instead of passing objects into callbacks. Returning a regular JavaScript object will result in a 200 response code with that object as a JSON body automatically. 
+4. Returning { statusCode: 400 } will result in an empty http response with a 400 code. 
 
-The Serverless command line framework will essentially let you configure AWS, Azure, Google Cloud etc without leaving your editor! It's a huge productivity boost and will ***massively*** simplify your serverless journey. 
+Don't worry about the error handling, we'll deal with that later. (Later !== never in this case)
 
+### 3. Adding our function to Serverless.yml
 
+Lets configure this function as an API endpoint by adding it to our serverless.yml located in the project root dir.
 
-Enter the almighty Serverless.yml file. If you've used Docker before, think of it as a docker file for cloud. Create a file called serverless.yml file in your root project directory.
-
-#### 4 
-```
-touch serverless.yml
-```
-
-In this file you configure eeeeverything to do with your app and deployment. We are also going to use it to run our app locally. 
-
-```
+```yaml
 service: serverless-express
 
 provider:
-  name: aws 
-  runtime: nodejs12.x 
-  stage: dev 
-  region: eu-central-1 
+  name: aws
+  runtime: nodejs12.x
+  stage: dev
+  region: eu-central-1
 
 plugins:
   - serverless-offline
+  - serverless-dotenv-plugin
 
 functions:
   expressApp:
     handler: handler.handler
-    events: 
-      - http: ANY / 
+    events:
+      - http: ANY /
       - http: 'ANY {proxy+}' 
-
+      
+   # Adding our new function here!
+    usersPost: 
+     handler: src/handlers/api/users.postUsers 
+     events: 
+       - http: 
+           path: /api/users
+           method: post
+           integration: lambda
 ```
 
-Please note that the indentation and the hiearchy is important in a yml file. *So what are we specifying here?*
+I think the serverless.yml additions are pretty self explanatory? Let me know in the comments if not!
 
-#### Provider
-
-We want to deploy to AWS and we want the functions specified later in this file to run in a Node.js version 12.x environment. You could also specify Node 10.x or 8.x, or [.NET, Go, Python, Java or Ruby, read more in the AWS Runtime docs](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html). We're going to deploy to a  [You can learn more about stages here](https://serverless-stack.com/chapters/stages-in-serverless-framework.html)
-
-***however*** please make sure your machine is running the same version of node! I.e. 12. Check by typing `node -v` in your terminal. Later when we run the project offline we want the same version as production. You can use [node version manager](https://github.com/nvm-sh/nvm) to handle different versions of node. 
-
-#### Plugins
-
-There are a ton of plugins you can use to make the serverless life easier. The first one we'll be using is serverless-offline, it'll enable us to run our app locally in an emulated aws environment.
-
-#### Functions
-
-This is where the magic happens. This is where we link our handler to an event. So we're naming our function expressApp, and it's handler is located in the file named app that exports the function named handler. 
-
-For our events, we've responding to two http events. The first one is for the base path of our domain, i.e. ourdomain.com/ the second for any other path to our domain (such as ourdomain.com/anything, ourdomain.com/any/thing, ourdomain.com/any?&someQueryParam=anything) etc. 
+That is all you need to configure *and deploy* your route! Now any POST request to mediumserverless.com/api/users will be directed to our new fancy lambda. Any other call will be directed to the expressApp. So our old express app and our new lambda can co-exist :)
 
 
-## Let's try it
 
-If you haven't already, you will need serverless installed as a global npm package
+//TODO put the .env's in the previous repo
 
-#### 5
-```
-npm install -g serverless
-```
+### 4. Let's test it
 
-Then lets install some of the dependencies we added:
+Make sure all dependencies are installed with `npm install` in both the root directory and the app directory. You can then run the project on your local machine with`sls offline --skipCacheInvalidation` and you should see it running:
 
 ```
-npm install --save serverless-http
-npm install --save-dev serverless-offline
-```
+Serverless: Routes for expressApp:
+Serverless: ANY /
+Serverless: ANY /{proxy*}
+Serverless: POST /{apiVersion}/functions/serverless-express-dev-expressApp/invocations
 
-Make sure the app you started previously is shut down then let's run our app locally with this command:
+Serverless: Routes for usersPost:
+Serverless: POST /api/users
+Serverless: POST /{apiVersion}/functions/serverless-express-dev-usersPost/invocations
 
-```
-serverless offline
-```
-
-Then you should see among other things see the below message in the console to indicate your app is running:
-
-```
 Serverless: Offline [HTTP] listening on http://localhost:3000
+Serverless: Enter "rp" to replay the last request
 ```
 
+So the express app will handle any http call ***except*** for POST requests to /api/users which will be handled by our usersPost function. Meaning that our old app and new fancy lambda is co-existing.
 
-#### Run the Postman test suite again
+The repo you cloned comes with a potman collection located in folder test in root dir. Open up the  test suite in [Postman](https://getpostman.com) and run the test in Profiles called 'register celeb' and it should pass. If you have problems running the test checkout [part 2 of this tutorial which covers how run the test suite]()
 
-Let's run our test-suite against the serverless version of our express app to make sure things are working. In your terminal you should see a bunch of log output from the app as you run the test suite. Scrolling to the first function call you should see this:
 
-```
-Serverless: ANY /api/users (λ: app)
- Listening on port 3000
- Mongoose: users.ensureIndex({ username: 1 }) { unique: true, background: true }  
- Mongoose: users.count({ '$and': [ { username: 'johnjacob' } ] }) {}  
- Mongoose: users.count({ '$and': [ { email: 'john@jacob.com' } ] }) {}  
- Mongoose: articles.ensureIndex({ slug: 1 }) { unique: true, background: true }  
- Mongoose: users.ensureIndex({ email: 1 }) { unique: true, background: true }  
- POST /api/users 422 87.421 ms - 71
-```
 
-So our app is receiving the request, some of our code is being executed, as we can see the debug log output from mongoose, and then our app replies with response code 422 - "unprocessable entity", which is not the response code we want.
+### 5. Deploy
 
-In the next request and all subsequent ones, we get the following error:
+Let's update our production app! Because `service: serverless-express` is defined at the top of our Serverless.yml even though we are in a different repo now you're still going to update the same service. 
 
-```
-Serverless: Error while loading app
- Error: Trying to open unclosed connection.
-     at NativeConnection.Connection.open (...your directory/Serverless Tutorial/serverless-http/node_modules/mongoose
-     /lib/connection.js:236:15)
-```
+`NODE_ENV=production serverless deploy`
 
-So our first request works, but not our subsequent ones? Why? In short because serverless offline reloads our code for each http event. This is to help during development so that you don't have to restart the app as you update your code. Normally this won't case you any issues, however in our case it means the entire app.js file is being loaded fresh with each test case, hence the trying to connect() to mongoose again. So this problem would not happen in production.
+You will recieve an AWS generated URL for your api. Now try running the test with the Postman environment set to production and things should work. (Remember to change the postman production environment varialbe url to the one you just recieved, checkout [this section in part 2 of the tutorial] if you need details on how to do this.)  
 
-let's run serverless offline without the code reloading;
+Since you now have two functions, one for the entire express app, and one for usersPost, you can stream logs for these individually with `serverless logs -f postUsers -t` and `serverless logs -f expressApp -t`. This will stream the log output of your production function to your terminal. 
 
-#### 6
-```
-serverless offline --skipCacheInvalidation
-```
 
-Try running the test cases again and you should be back to 239 passed and 44 failed :) So let's deploy this to production! 
 
-## Deploying our backend to production
+### [FYI] Input Validation
 
-Before you can deploy this to production you need serverless configured with your aws account. If you haven't set this up already, [just follow this guide](https://serverless.com/framework/docs/providers/aws/guide/credentials#setup-with-the-aws-cli) . I recommend doing it with the aws-cli since it's handy to have on your machine as a serverless dev but whichever method you prefer.
+You may have noticed that the original code makes no attempt to check the validity of the input, i.e. the password, username and email. If you call our endoint without these as empty strings, you will actually be able to register a user with "" as username and e-mail. If you are running this in production, eventually someone will try to mess with you. Lack of input validation is a guaranteed nightmare. 
 
-#### 7
-```
-serverless deploy
-```
-
-It should start working, "Packaging service..." then eventually;
-
-```
-...............................
-Serverless: Stack update finished...
-Service Information
-service: serverless-express
-stage: dev
-region: eu-central-1
-stack: serverless-express-dev
-resources: 12
-api keys:
-  None
-endpoints:
-  ANY - https://1337dprixv2a.execute-api.eu-central-1.amazonaws.com/dev
-  ANY - https://1337dprixv2a.execute-api.eu-central-1.amazonaws.com/dev/{proxy+}
-functions:
-  expressApp: serverless-express-dev-expressApp
-layers:
-  None
-```
-
-Under "endpoints:" you can see your production API url! Let's run our test-suite against this url to see if everything works. 
-
-### Testing our production deployment
-
-Our postman suite is configured to run against localhost:3000/api. We need to change that to the endpoint aws generated for us. We'll do that by adding a postman environment, so that we easily can switch between local and production. 
-
-#### 8
-![Alt Text](https://thepracticaldev.s3.amazonaws.com/i/s1sua2dxztxgs9lbabhf.png)
-*Don't forget to add /api to your endpoint! Otherwise you'll get 404 not found as our express app expects all routes to be prefaced with /api!*
-
-Then make sure you have your production environment selected in postman:
-
-![Alt Text](https://thepracticaldev.s3.amazonaws.com/i/2lgn7zkpk36p2oceqokh.png)
-
-*Now lets run our test suite as normal*! 
-
-Aaaand.. all tests fail. Each of them gives 502 Bad Gateway. 
-
-### Checking our apps log output
-
-Let's open the log for our function named expressApp and run our test suite 
-
-#### 9
-```
-serverless logs -f expressApp
-```
-
-Your terminal should now be filled with the log output from your app! With many entries like these:
-
-```
-START RequestId: 7fbfff1b-a8b6-4e77-9da6-7de379413f3f Version: $LATEST
-2019-12-20 15:24:51.520 (+01:00)        11404faa-0677-4a74-9e81-1f99c1d86f41    Listening on port 3000
-2019-12-20 15:24:51.553 (+01:00)        7fbfff1b-a8b6-4e77-9da6-7de379413f3f    Error: connect ECONNREFUSED 127.0.0.1:27017
-    at Object._errnoException (util.js:1022:11)
-    at _exceptionWithHostPort (util.js:1044:20)
-    at TCPConnectWrap.afterConnect [as oncomplete] (net.js:1198:14)
-END RequestId: 7fbfff1b-a8b6-4e77-9da6-7de379413f3f
-REPORT RequestId: 7fbfff1b-a8b6-4e77-9da6-7de379413f3f  Duration: 81.13 ms      Billed Duration: 100 ms Memory Size: 1024 MB    Max Memory Used: 74 MB  
-
-RequestId: 7fbfff1b-a8b6-4e77-9da6-7de379413f3f Process exited before completing request
-```
-
-You can probably figure this one out, the clue is in " Error: connect ECONNREFUSED 127.0.0.1:27017". 
-
-In our app.js file we've got this:
+There is *some* validation in the Mongoose model;
 
 ```javascript
-if(isProduction){
-  mongoose.connect(process.env.MONGODB_URI);
-} else {
-  mongoose.connect('mongodb://localhost/conduit');
-  mongoose.set('debug', true);
+ var UserSchema = new mongoose.Schema({
+  username: {type: String, lowercase: true, unique: true, required: [true, "can't be blank"], match: [/^[a-zA-Z0-9]+$/, 'is invalid'], index: true},
+  email: {type: String, lowercase: true, unique: true, required: [true, "can't be blank"], match: [/\S+@\S+\.\S+/, 'is invalid'], index: true},
+  bio: String,
+  image: String,
+  favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Article' }],
+  following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  hash: String,
+  salt: String
+}, {timestamps: true});
+
+```
+
+However, you can still input an empty string (No idea why, but you can..). Also you can have an insanely long email or username, which could break your frontend ui. 
+
+But that's not really the issue here. The issue is that ***validating your input is a cross-cutting concern***. It applies to most of your functions, not just mongoose. In functions without mongoose, you would need to come up with different validation. And then your validation logic is spread all over your app and done in different ways.
+
+You might be tempted to write code like this;
+
+```javascript
+const { username, email, password } = {...event.body.user}
+if (!username || !email || !password) return {statusCode: 422}
+```
+
+Great! Solves our first scenario. But what if the username is really short? Or outrageously long? Or a number? And you still need to implement proper logic for making sure you're getting an actual email! So you start adding all that as well and soon you have *more validation logic than business logic*. Not fun! And you have to write this type of code for all your other api endpoints too. This will slow you done.
+
+***Implementing validation logic in code is a terrible idea***:
+
+* It's boring code to write
+* It clutters your codebase
+* You are going to make mistakes 
+
+What you want is being able to just trust that the input you get into your lambda meets a certain specification. A certain ***Schema***.
+
+### 6. Input Validation with JSON Schema
+
+In any web app (more or less), you are going to be dealing with a lot of JSON. Sending, recieving, storing it etc. So the ideal solution is to define what our user object is allowed to look like in a separate [JSON Schema](https://json-schema.org). We're then going to link to that schema in our Serverless.yml and simply reject any http request that doesn't conform to our schema. Meaning; we can be confident that our function has the input we expect.
+
+Let's create a schema for our user object and place it in a separate file/folder far away from our business logic:
+
+```json
+// src/schemas/newUser.json
+{
+  "type": "object",
+  "properties": {
+    "user": { // so we're specifying a nested object
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 20 
+        },
+        "password": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "format": "email" // a built in format, you could also use a REGEX
+        }
+      },
+      "required": ["username", "password", "email"]
+    }
+  },
+  "required": ["user"]
 }
 ```
 
-So we need to set two environment variables, isProduction and MONGODB_URI. 
+I don't think I need to explain the schema since JSON Schema is very human-readable! Now simply plug it into our endpoint via Serverless.yml:
 
-### Environment variables in Serverless
-
-Here are tree ways to handle environment variables in a serverless project. For a more detailed look at environment variables have a look at this excellent article; [Managing multiple environments with Express & Serverless Framework](https://sangeeta.io/2019/05/01/express-serverless/) by Sangeeta Jadoonanan.
-
-#### In our Serverless.yml file
-
+```yaml
+usersPost:
+     handler: src/handlers/api/users.postUsers
+     events:
+       - http:
+           path: /api/users
+           method: post
+           integration: lambda
+           request:
+             schema:
+               application/json: ${file(src/schemas/newUser.json)}
 ```
-  expressApp:
-    handler: app.handler
-    environment:
-      NODE_ENV: production
-      MONGODB_URI: mongodb://... etc
+
+That's it! Now deploy the app again and try calling the endpoint with a bunch of bad inputs. (Serverless Offline *does not* implement JSON schemas, so you have to try against production) You will recieve a 422 "bad request" response and ***your function won't even be called***. This is important; with Lambda you pay based on invocation and usage, not having your function invoked with bad inputs is therefore a good thing.
+
+The easy way to craft your own JSON Schema is simply to scroll through the [JSON Schema Reference](https://json-schema.org/understanding-json-schema/reference/index.html) for whatever type you're trying to validate (number, strings etc), then go from there. You'll get the hang of it very quickly. 
+
+As a bonus, you could use this same schema to validate the create user form on the front-end; effectively making the JSON Schema a contract between your front and backend. 
+
+
+
+### 7. Error Handling
+
+We've saved ourselves a bunch of annoying error handling by validating the input to our lambda. But what about errors that happen even though the input is valid?
+
+This sucks:
+
+```javascript
+ user.save().then(() => {
+    return { user: user.toAuthJSON() }
+  }).catch(() => {
+    return { statusCode: 400 }
+  })
+```
+
+* Needing to catch directly in our lambda clutters the code
+  * Ideally we just want to be able to throw errors and have those taken care of automatically
+* We have to set the status code directly in the lambda 
+  * As you're implementing the frontend and documenting your code, should things get that professional, it'll be very annoying to keep track of the various status codes
+
+
+
+#### What We Want
+
+```javascript
+await user.save()
+return { user: user.toAuthJSON() }
+```
+
+* To not have to have to handle the error with .catch() as it'll clutter our code
+* For a proper response code to be returned (200), without needing to set that in our lambda
+* Since save() will be used by other functions in other API endpoints, we want those to handle the error as well
+* Minimal effort
+* A consistent approach to handling the various errors that arise so we can focus on writing *business logic* and still have decent error handling. 
+
+In software design that's called the cake and eat it pattern. 
+
+
+
+Now save() is a method from an external dependency (Mongoose).  If a username or e-mail already exists it will throw `Error [ValidationError]: "User validation failed: username: is already taken., email: is already taken."`  with some variation, depending on what already existed. Lambda will map **all** uncaught errors to below standard format and respond with code **500 - Internal Server Error** due to the built in error handling when calling lambda from API Gateway (since we are calling the function with a http event, that means API Gateway).
+
+```javascript
+{
+    "errorMessage": "User validation failed: username: is already taken., email: is already taken.",
+    "errorType": "MongooseError",
+    "stackTrace": [
+        "ValidationError: User validation failed: username: is already taken., email: is already taken.",
+        "at new ValidationError... embarrasing stack trace goes here
+    ]
+}
+```
+
+You can read more about [Handling Standard Lambda Errors in API Gateway in the AWS docs here](https://docs.amazonaws.cn/en_us/apigateway/latest/developerguide/handle-errors-in-lambda-integration.html)
+
+#### Solution 
+
+We'll solve this via Serverless.yml.
+
+```yaml
+  usersPost:
+    handler: src/handlers/api/users.postUsers
     events:
-      - http: ANY /
-      - http: 'ANY {proxy+}'
+      - http:
+          method: post
+          path: /api/users
+          integration: lambda
+          request:
+            schema:
+              application/json: ${file(src/schemas/newUser.json)}
+          response: ### ADDED STUFF HERE
+            headers: #1
+              Content-Type: "'application/json'"
+            statusCodes: 
+               200: #2
+                pattern: .*is already taken.*
+                template: #3
+                  application/json: ${file(src/errors/error-response-template.yml)}
+               201: #4
+                pattern: ''
+             
 ```
 
-Setting environment variables either under each function block, or in the provider: section to apply for all your functions. The problem here is that if your environment variables are sensitive, then you'll save them in cleartext.. and perhaps accidentally push them to github. Our production database connection string will be sensitive, so this method is not great for us.
+1. You can apply the below to one or several content types, my api will only use JSON so i'm leaving it at that. But FYI you can also have different responses and templates based on headers. 
+2. We define that a 200 response code should be returned if the pattern matches the Regular Expression /.*is already taken.*/g. The pattern will be tested against the errorMessage property of our lambdas return value, which as you might recall is what our Lambda will put the error message under for *any uncaught error*
+3. We want that 201 response to follow a particular pre-formatted template which we've defined in an external file. (I'll show you below)
+4. Here I'm changing the **default** non-error response code to 201 CREATED. Originally, the app returned 200 OK, however a POST where a user is successfully saved, created, should return 201. By applying the '' empty pattern, this will be the response whenever no other pattern has matched. 
 
-However, if you do this correctly, referencing and managing separate files, this method can be very powerful. I recommend leanring more about this in Sangeeta's article;[Managing multiple environments with Express & Serverless Framework](https://sangeeta.io/2019/05/01/express-serverless/).
+/src/errors/error-response-template.yml:
 
-#### Directly in lambda
-
-![Alt Text](https://thepracticaldev.s3.amazonaws.com/i/6qnsyaq72z6gez94gfpq.png)
-
-If you have very sensitive environment variables, or few/ones you won't need to edit frequently, you can add them directly to your Lambda using the aws console. The interface also has functionality to encrypt them. For our single mongodb connection string containing username and password to our production db, this would be perfect. This connection string isn't going to change, and we only have a single lambda using it so no need to manually add it to several lambdas. However, this might limit you in some of your own projects, so I'll use the third option below for the purpose of this tutorial. 
-
-
-#### Using .env files
-
-We can use the serverless-dotenv plugin which will let us have different .env files for development and production. This is a somewhat more secure since files starting with . are hidden on your system and we can add it to our .gitignore to avoid pushing these values to git accidentally. 
-
-#### 10
-```
-npm install --save-dev serverless-dotenv-plugin
+```yaml
+'{
+  "message": $input.json("$.errorMessage")
+}'
 ```
 
-Add the plugin in your serverless.yml:
+Will result in the below 200 OK reply:
 
-```
-plugins:
-  - serverless-offline
-  - serverless-dotenv-plugin
-```
-
-Then create two .env files:
-
-```
-touch .env
-touch .env.production
+```json
+{
+    "message": "User validation failed: email: is already taken., username: is already taken."
+}
 ```
 
-*don't forget to add .env to your .gitignore file!*
+No stack trace, no status 500. 
 
-The .env will apply if we haven't specified an environment when running the app and the .env.production will apply if NODE_ENV is set to production. 
+*You now have error handling of this this save() error that you can easily add to any api endpoint that uses save()*. With just one function that doesn't matter so much, but as your application grows, being able to consistently and simply handle errors like this, away from your code, will be a boon to your productivity. You also have all your error codes documented in one place, so it's easy to see in one consistent place what different codes and errors your backend might return. Your frontend developer will appreciate this. 
 
+If throwing your own error you could do something like this:
 
-
-### Connecting to our MongoDB Atlas production database
-
-How do you install, deploy and maintain a database to perfection? You don't! Let the creator of the database take care of it. It's also free up to 512mb, you can store _a lot_ of blog posts with 512mb.. 
-
-To get our production db connection string head over to [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) and;
-
-#### 11
-* Create a database 
-* Add 0.0.0.0 to the IP whitelist (so that you can connect from anywhere) * Create a read/write user
-
-For a detailed step-by-step on how to do that checkout this tutorial: [Free Tier Serverless MongoDB with AWS Lambda and MongoDB Atlas](https://mattwelke.com/2019/02/18/free-tier-serverless-mongodb-with-aws-lambda-and-mongodb-atlas.html) by Matt Welke.
-
-Open up your .env.production and set your NODE_ENV, SECRET and MONGODB_URI environment variables:
-
-```
-NODE_ENV=production
-SECRET=keyboardCat
-MONGODB_URI=mongodb+srv://<username>:<password>@cluster0-zrpie.mongodb.net/test?retryWrites=true&w=majority
+```javascript
+throw new Error(JSON.stringify({code: '[422]', someProperty, someVar, otherUsefulInfo}))
 ```
 
-replacing <username>:<password> with ones from the user you created. 
-
-Since we are connecting to the latest version of MongoDB on Atlas we'll need to update mongoose and mongoose-unique-validator:
-
-#### 12
-```
-npm install --save mongoose@latest mongoose-unique-validator@latest
-```
-
-Now let's deploy our updated app with the serverless environment set to production:
-
-```
-NODE_ENV=production serverless deploy 
-```
-
-You should see serverless working on deployment and mentioning the inclusion of your MONGODB_URI environment variable:
-
-```
-Serverless: DOTENV: Loading environment variables from .env.production:
-Serverless:      - MONGODB_URI
-Serverless: Packaging service...
-Serverless: Excluding development dependencies...
-...
-```
-
-Let's *tail* (stream) the logoutput of our production app: 
-#### 13
-```
- serverless logs -f expressApp -t
-```
-
-Now run the Postman test suite ! You should have 280 passing tests and 23 failed. If you're observant you'll notice we're passing more tests than before and that's because we updated mongoose. 
-
-# What you just deployed on aws
-
-You're in the cloud! Let's take a look at all the stuff the Serverless Framework configured on AWS for you. Long onto [console.aws.amazon.com](https://console.aws.amazon.com). Make sure you have the same region selected as in your Serverless.yml. 
-
-Your app uses Lambda, API Gateway and CloudWatch. Search to find each service:
-![Alt Text](https://thepracticaldev.s3.amazonaws.com/i/80gn9felu1ixaw3mqb89.png)
-
-*I strongly encourage you to explore the interfaces of each to learn more about what you've deployed and the possibilities!*
-
-#### API Gateway
-
-This is Amazons "web framework" as a service. In our case, it's not doing much (yet), and simply forwards all http events as they are to our express app. However, it could do a lot, such as integrate with a CDN, throttling & rate limiting, input validation, API keys.. 
-
-![Alt Text](https://thepracticaldev.s3.amazonaws.com/i/82l0w9opvaut875onwly.png)
-
-
-#### Lambda
-
-Your one function running the app, connected to a singular event; API Gateway.
- 
-![Alt Text](https://thepracticaldev.s3.amazonaws.com/i/2zj3k7nmap1x9ii19uui.png)
-
-
-#### CloudWatch
-
-Here you can find all logs for your app, and also usage metrics. 
-
-![Alt Text](https://thepracticaldev.s3.amazonaws.com/i/6uqn4iufd7k0u77xwlb3.png)
+And have that handled by a standard code 422 template with any variables you include accessible by the template. So the error-response-template.yml is more powerful than what we've used it for so far. And you can do a lot more with it in order to format a good response. We'll get to that in later parts when we build on this powerful error handling strategy further :)
 
 
 
-# Next steps
+# Next Steps & Final Code
 
-We've got the backend deployed! In Part 2 we'll deploy one of the RealWorld frontends, connect it to our backend, and host it all with a custom domain, using https and a global content delivery network. For free! (except for the domain, those cost money also in the serverless world).
+Checkout the final code from this tutorial in the [Github Repo](https://github.com/medium-serverless/backend-serverless-http-part1.git). I also recommend checking out the previous part if you want a full understanding of how to run real world apps serverlessly:
 
-In Part 3 we are going to remove Express.js as a dependency in our backend, refactoring the code into several independent functions, and begin to leverage more of the serverless functionality.
+In part 5 of this tutorial I'm going to continue refactoring the Users part of the API. Specifically, I'm going to deal with authentication and authorization. Currently, that's all tangled up with our code and endpoints and  I want to do it with an authorizer function instead. 
 
-
-
-
-
+Generally what I'm doing here is doing less and less things in code, and more in configuration. By configuring instead of coding the *boring stuff that all apps need*, those things can be done much quicker for your apps - and the deployment is taken care of. 

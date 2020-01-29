@@ -1,6 +1,11 @@
 Finished repo for tutorial: [Deploying a medium.com clone serverlessly for learning and profit. Part 1: backend
 ](https://dev.to/larswww/deploying-a-medium-com-clone-serverlessly-for-learning-and-profit-part-1-backend-1dg)
 
+In this tutorial series I'm refactoring [The mother of all demo apps - Real World](https://github.com/gothinkster
+/realworld) by [thinkster.io](https://thinkster.io/) into a fully serverless app on aws as a fun learn-aws and
+ exploration project. In Part 4 I'm refactoring one single endpoint in the express app into a lambda. The latest
+ part of the tutorial is always what is running on [mediumserverless.com](https://mediumserverless.com).
+
 ### Prerequisites 
 
 To deploy this app you need an aws account, and the serverless framework configured with your aws account. [Follow
@@ -8,34 +13,36 @@ To deploy this app you need an aws account, and the serverless framework configu
 
 
 ### Get started
-
+You need to clone this repo and the [Node/Express flavor of Real World example app](https://github.com/gothinkster
+/node-express-realworld-example-app). Installing dependencies for both, and updating two packages in the Real World
+ repo.
 ```
-git clone https://github.com/medium-serverless/backend-serverless-http-part1.git
+git clone https://github.com/medium-serverless/backend-serverless-http-part1.git .
 npm install
+git clone https://github.com/gothinkster/node-express-realworld-example-app.git app && cd app
+npm install
+npm install --save mongoose@latest mongoose-unique-validator@latest
 ```
 
-Mongodb needs to be installed and running on your machine: `mongod`. Then run the project locally with `serverless
- offline --skipCacheInvalidation`
+
+### Running locally
+
+`sls offline --skipCacheInvalidation` will run the project using serverless offline.
+
 
 ### Deploying to production
 
-This project uses [serverless dotenv plugin](https://www.npmjs.com/package/serverless-dotenv-plugin) to manage
- environment variables. You need to create a production .env files before you run the project in production.
- 
-Create a file named .env.production in your root directory with the following variables:
- 
+Create a file named .env.production in the root dir and att the below:
 ```
 NODE_ENV=production
 SECRET=keyboardCat
 MONGODB_URI=mongodb+srv://username:password@cluster-domain.mongodb.net/test?retryWrites=true&w=majority
 ```
+Replacing the MONGODB_URI value with a [MongoDB Atlas](https://cloud.mongodb.com/) connection string, or mongodb
+ database hosted elsewhere (atlas has a free tier though).
 
-The above uses a [MongoDB Atlas](https://cloud.mongodb.com/) connection string, but you can of course connect to
- mongodb hosted anywhere. 
-
-Once .env.production is configured deploy with this command: `NODE_ENV=production serverless deploy`. Running
- serverless deploy prefaced with NODE_ENV=production will cause serverless to also upload the env vars in .env
- .production
+Deploy with: `NODE_ENV=production serverless deploy`. Running serverless deploy prefaced with NODE_ENV=production
+ will cause serverless to also upload the env vars in .env.production
  
 
 ### Run tests
