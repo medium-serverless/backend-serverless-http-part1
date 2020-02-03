@@ -11,11 +11,6 @@ plugins:
   - serverless-dotenv-plugin
 
 functions:
-  expressApp:
-    handler: handler.handler
-    events:
-      - http: ANY /
-      - http: 'ANY {proxy+}'
 
   usersPost:
     handler: src/handlers/api/users.postUsers
