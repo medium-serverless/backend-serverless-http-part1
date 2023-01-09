@@ -19,6 +19,6 @@
   "devDependencies": {
     "newman": "^4.5.7",
     "serverless-dotenv-plugin": "^2.1.1",
-    "serverless-offline": "^5.12.1"
+    "serverless-offline": "^12.0.4"
   }
 }
